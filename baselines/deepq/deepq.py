@@ -247,6 +247,7 @@ def learn(env,
     final_timeslots = []
     timestep_durations = []
     action_durations = []
+    step_durations = []
     train_durations = []
     saved_mean_reward = None
     obs = env.reset()
@@ -293,7 +294,9 @@ def learn(env,
             action_durations.append(time.time() - before_action)
             env_action = action
             reset = False
+            before_step = time.time()
             new_obs, rew, done, _ = env.step(env_action)
+            step_durations.append(time.time() - before_step)
             if after_step_callback is not None:
                 if after_step_callback(locals(), globals()):
                     break
@@ -337,8 +340,11 @@ def learn(env,
             gaps = np.array(final_timeslots[-print_freq:]) - np.array(episode_baselines[-print_freq-1:-1])
             mean_baseline_gap = round(np.mean(gaps), 1)
             print_freq_steps = int(np.sum(episode_steps[-print_freq:]))
-            mean_action_duration = round(np.mean(action_durations[-print_freq_steps:]), 2)
-            mean_train_duration = round(np.mean(train_durations[-print_freq_steps:]), 1)
+            total_duration = np.sum(timestep_durations[-print_freq_steps:])
+            total_train = np.sum(train_durations[-print_freq_steps:])
+            total_act = np.sum(action_durations[-print_freq_steps:])
+            total_step = np.sum(step_durations[-print_freq_steps:])
+            avg_step = round(np.mean(step_durations[-print_freq_steps:]), 2)
             mean_timestep_duration = round(np.mean(timestep_durations[-print_freq_steps:]), 2)
             num_episodes = len(episode_rewards) - 1 # trailing 0
             if done and print_freq is not None and len(episode_rewards) % print_freq == 0:
@@ -347,8 +353,11 @@ def learn(env,
                 logger.record_tabular("reward", mean_reward)
                 logger.record_tabular("gap", mean_baseline_gap)
                 logger.record_tabular("ts duration", mean_timestep_duration)
-                logger.record_tabular("act duration", mean_action_duration)
-                logger.record_tabular("train duration", mean_train_duration)
+                logger.record_tabular("ep duration", total_duration / print_freq)
+                logger.record_tabular("act percent", int(100 * total_act / total_duration))
+                logger.record_tabular("train percent", int(100 * total_train / total_duration))
+                logger.record_tabular("step percent", int(100 * total_step / total_duration))
+                logger.record_tabular("avg step", avg_step)
                 logger.record_tabular("% exploration", int(100 * exploration.value(t)))
                 logger.dump_tabular()
 
