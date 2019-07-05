@@ -1,5 +1,6 @@
 import os
 import tempfile
+import time
 
 import tensorflow as tf
 import zipfile
@@ -220,7 +221,6 @@ def learn(env,
 
     act = ActWrapper(act, act_params)
 
-    print("A")
     # Create the replay buffer
     if prioritized_replay:
         replay_buffer = PrioritizedReplayBuffer(buffer_size, alpha=prioritized_replay_alpha)
@@ -243,6 +243,9 @@ def learn(env,
 
     episode_rewards = [0.0]
     final_timeslots = []
+    timestep_durations = []
+    action_durations = []
+    train_durations = []
     saved_mean_reward = None
     obs = env.reset()
     episode_baselines = [env.baseline]
@@ -264,6 +267,7 @@ def learn(env,
 
 
         for t in range(total_timesteps):
+            before_timestep = time.time()
             if callback is not None:
                 if callback(locals(), globals()):
                     break
@@ -282,7 +286,9 @@ def learn(env,
                 kwargs['reset'] = reset
                 kwargs['update_param_noise_threshold'] = update_param_noise_threshold
                 kwargs['update_param_noise_scale'] = True
+            before_action = time.time()
             action = act(obs, update_eps=update_eps, **kwargs)[0]
+            action_durations.append(time.time() - before_action)
             env_action = action
             reset = False
             new_obs, rew, done, _ = env.step(env_action)
@@ -303,6 +309,7 @@ def learn(env,
                 reset = True
 
             if t > learning_starts and t % train_freq == 0:
+                before_train = time.time()
                 # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
                 if prioritized_replay:
                     experience = replay_buffer.sample(batch_size, beta=beta_schedule.value(t))
@@ -314,6 +321,7 @@ def learn(env,
                 if prioritized_replay:
                     new_priorities = np.abs(td_errors) + prioritized_replay_eps
                     replay_buffer.update_priorities(batch_idxes, new_priorities)
+                train_durations.append(time.time() - before_train)
 
             if t > learning_starts and t % target_network_update_freq == 0:
                 # Update target network periodically.
@@ -322,12 +330,18 @@ def learn(env,
             mean_100ep_reward = round(np.mean(episode_rewards[-101:-1]), 1)
             gaps = np.array(final_timeslots[-100:]) - np.array(episode_baselines[-101:-1])
             mean_100ep_baseline_gap = round(np.mean(gaps), 1)
+            mean_100ep_action_duration = round(np.mean(action_durations[-100:]), 2)
+            mean_100ep_train_duration = round(np.mean(train_durations[-100:]), 1)
+            mean_100ep_timestep_duration = round(np.mean(timestep_durations[-100:]), 2)
             num_episodes = len(episode_rewards)
             if done and print_freq is not None and len(episode_rewards) % print_freq == 0:
                 logger.record_tabular("steps", t)
                 logger.record_tabular("episodes", num_episodes)
-                logger.record_tabular("mean 100 episode reward", mean_100ep_reward)
-                logger.record_tabular("mean 100 episode gap", mean_100ep_baseline_gap)
+                logger.record_tabular("mean 100ep reward", mean_100ep_reward)
+                logger.record_tabular("mean 100ep gap", mean_100ep_baseline_gap)
+                logger.record_tabular("mean 100ep ts duration", mean_100ep_timestep_duration)
+                logger.record_tabular("mean 100ep act duration", mean_100ep_action_duration)
+                logger.record_tabular("mean 100ep train duration", mean_100ep_train_duration)
                 logger.record_tabular("% time spent exploring", int(100 * exploration.value(t)))
                 logger.dump_tabular()
 
@@ -340,6 +354,8 @@ def learn(env,
                     save_variables(model_file)
                     model_saved = True
                     saved_mean_reward = mean_100ep_reward
+
+            timestep_durations.append(time.time() - before_timestep)
         if model_saved:
             if print_freq is not None:
                 logger.log("Restored model with mean reward: {}".format(saved_mean_reward))
