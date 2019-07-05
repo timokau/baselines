@@ -327,24 +327,25 @@ def learn(env,
                 # Update target network periodically.
                 update_target()
 
-            mean_100ep_reward = round(np.mean(episode_rewards[-101:-1]), 1)
-            gaps = np.array(final_timeslots[-100:]) - np.array(episode_baselines[-101:-1])
-            mean_100ep_baseline_gap = round(np.mean(gaps), 1)
-            mean_100ep_action_duration = round(np.mean(action_durations[-100:]), 2)
-            mean_100ep_train_duration = round(np.mean(train_durations[-100:]), 1)
-            mean_100ep_timestep_duration = round(np.mean(timestep_durations[-100:]), 2)
+            mean_reward = round(np.mean(episode_rewards[-print_freq-1:-1]), 1)
+            gaps = np.array(final_timeslots[-print_freq:]) - np.array(episode_baselines[-print_freq-1:-1])
+            mean_baseline_gap = round(np.mean(gaps), 1)
+            mean_action_duration = round(np.mean(action_durations[-print_freq:]), 2)
+            mean_train_duration = round(np.mean(train_durations[-print_freq:]), 1)
+            mean_timestep_duration = round(np.mean(timestep_durations[-print_freq:]), 2)
             num_episodes = len(episode_rewards)
             if done and print_freq is not None and len(episode_rewards) % print_freq == 0:
                 logger.record_tabular("steps", t)
                 logger.record_tabular("episodes", num_episodes)
-                logger.record_tabular("mean 100ep reward", mean_100ep_reward)
-                logger.record_tabular("mean 100ep gap", mean_100ep_baseline_gap)
-                logger.record_tabular("mean 100ep ts duration", mean_100ep_timestep_duration)
-                logger.record_tabular("mean 100ep act duration", mean_100ep_action_duration)
-                logger.record_tabular("mean 100ep train duration", mean_100ep_train_duration)
-                logger.record_tabular("% time spent exploring", int(100 * exploration.value(t)))
+                logger.record_tabular("reward", mean_reward)
+                logger.record_tabular("gap", mean_baseline_gap)
+                logger.record_tabular("ts duration", mean_timestep_duration)
+                logger.record_tabular("act duration", mean_action_duration)
+                logger.record_tabular("train duration", mean_train_duration)
+                logger.record_tabular("% exploration", int(100 * exploration.value(t)))
                 logger.dump_tabular()
 
+            mean_100ep_reward = round(np.mean(episode_rewards[-101:-1]), 1)
             if (checkpoint_freq is not None and t > learning_starts and
                     num_episodes > 100 and t % checkpoint_freq == 0):
                 if saved_mean_reward is None or mean_100ep_reward > saved_mean_reward:
