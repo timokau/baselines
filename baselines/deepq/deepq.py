@@ -242,6 +242,8 @@ def learn(env,
     update_target()
 
     episode_rewards = [0.0]
+    episode_steps = []
+    this_episode_started_at = 0
     final_timeslots = []
     timestep_durations = []
     action_durations = []
@@ -304,6 +306,8 @@ def learn(env,
                 episode_baselines.append(env.baseline)
                 final_timeslots.append(env.env.used_timeslots)
                 episode_rewards.append(0.0)
+                episode_steps.append(t - this_episode_started_at)
+                this_episode_started_at = t + 1
 
                 obs = env.reset()
                 reset = True
@@ -322,6 +326,8 @@ def learn(env,
                     new_priorities = np.abs(td_errors) + prioritized_replay_eps
                     replay_buffer.update_priorities(batch_idxes, new_priorities)
                 train_durations.append(time.time() - before_train)
+            else:
+                train_durations.append(0)
 
             if t > learning_starts and t % target_network_update_freq == 0:
                 # Update target network periodically.
@@ -330,10 +336,11 @@ def learn(env,
             mean_reward = round(np.mean(episode_rewards[-print_freq-1:-1]), 1)
             gaps = np.array(final_timeslots[-print_freq:]) - np.array(episode_baselines[-print_freq-1:-1])
             mean_baseline_gap = round(np.mean(gaps), 1)
-            mean_action_duration = round(np.mean(action_durations[-print_freq:]), 2)
-            mean_train_duration = round(np.mean(train_durations[-print_freq:]), 1)
-            mean_timestep_duration = round(np.mean(timestep_durations[-print_freq:]), 2)
-            num_episodes = len(episode_rewards)
+            print_freq_steps = int(np.sum(episode_steps[-print_freq:]))
+            mean_action_duration = round(np.mean(action_durations[-print_freq_steps:]), 2)
+            mean_train_duration = round(np.mean(train_durations[-print_freq_steps:]), 1)
+            mean_timestep_duration = round(np.mean(timestep_durations[-print_freq_steps:]), 2)
+            num_episodes = len(episode_rewards) - 1 # trailing 0
             if done and print_freq is not None and len(episode_rewards) % print_freq == 0:
                 logger.record_tabular("steps", t)
                 logger.record_tabular("episodes", num_episodes)
