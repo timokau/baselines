@@ -1,6 +1,8 @@
 import os
 import tempfile
 import time
+from pycallgraph import PyCallGraph, Config, GlobbingFilter
+from pycallgraph.output import GraphvizOutput
 
 import tensorflow as tf
 import zipfile
@@ -193,6 +195,11 @@ def learn(env,
     sess = get_session()
     set_global_seeds(seed)
 
+    config = Config()
+    config.trace_filter = GlobbingFilter(exclude=["pycallgraph.*"])
+    graphviz = GraphvizOutput(output_file=f"pc.png")
+    pcg = PyCallGraph(output=graphviz, config=config)
+
     q_func = build_q_func(network, **network_kwargs)
 
     # capture the shape outside the closure so that the env object is not serialized
@@ -295,7 +302,12 @@ def learn(env,
             env_action = action
             reset = False
             before_step = time.time()
+            pcg.start(reset=False)
             new_obs, rew, done, _ = env.step(env_action)
+            pcg.stop()
+            if t % 100 == 0:
+                print("Saving trace")
+                pcg.done()
             step_durations.append(time.time() - before_step)
             if after_step_callback is not None:
                 if after_step_callback(locals(), globals()):
@@ -378,4 +390,5 @@ def learn(env,
                 logger.log("Restored model with mean reward: {}".format(saved_mean_reward))
             load_variables(model_file)
 
+    pcg.done()
     return act
