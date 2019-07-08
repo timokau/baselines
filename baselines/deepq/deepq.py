@@ -335,6 +335,7 @@ def learn(env,
             if t > learning_starts and t % target_network_update_freq == 0:
                 # Update target network periodically.
                 update_target()
+            timestep_durations.append(time.time() - before_timestep)
 
             mean_reward = round(np.mean(episode_rewards[-print_freq-1:-1]), 1)
             gaps = np.array(final_timeslots[-print_freq:]) - np.array(episode_baselines[-print_freq-1:-1])
@@ -346,13 +347,19 @@ def learn(env,
             total_step = np.sum(step_durations[-print_freq_steps:])
             avg_step = round(np.mean(step_durations[-print_freq_steps:]), 2)
             mean_timestep_duration = round(np.mean(timestep_durations[-print_freq_steps:]), 2)
+            cur_blocks = len(env.env.overlay.blocks())
+            cur_nodes = len(env.env.infra.nodes())
+            cur_links = len(env.env.overlay.links())
             num_episodes = len(episode_rewards) - 1 # trailing 0
-            if done and print_freq is not None and len(episode_rewards) % print_freq == 0:
+            if print_freq is not None:
                 logger.record_tabular("steps", t)
                 logger.record_tabular("episodes", num_episodes)
                 logger.record_tabular("reward", mean_reward)
                 logger.record_tabular("gap", mean_baseline_gap)
-                logger.record_tabular("ts duration", mean_timestep_duration)
+                logger.record_tabular("ts duration", timestep_durations[-1])
+                logger.record_tabular("blocks", cur_blocks)
+                logger.record_tabular("nodes", cur_nodes)
+                logger.record_tabular("links", cur_links)
                 logger.record_tabular("ep duration", total_duration / print_freq)
                 logger.record_tabular("act percent", int(100 * total_act / total_duration))
                 logger.record_tabular("train percent", int(100 * total_train / total_duration))
@@ -372,7 +379,6 @@ def learn(env,
                     model_saved = True
                     saved_mean_reward = mean_100ep_reward
 
-            timestep_durations.append(time.time() - before_timestep)
         if model_saved:
             if print_freq is not None:
                 logger.log("Restored model with mean reward: {}".format(saved_mean_reward))
