@@ -351,7 +351,7 @@ def learn(env,
             cur_nodes = len(env.env.infra.nodes())
             cur_links = len(env.env.overlay.links())
             num_episodes = len(episode_rewards) - 1 # trailing 0
-            if print_freq is not None:
+            if done and print_freq is not None and len(episode_rewards) % print_freq == 0:
                 logger.record_tabular("steps", t)
                 logger.record_tabular("episodes", num_episodes)
                 logger.record_tabular("reward", mean_reward)
