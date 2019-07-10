@@ -291,7 +291,12 @@ def learn(env,
                 kwargs['update_param_noise_threshold'] = update_param_noise_threshold
                 kwargs['update_param_noise_scale'] = True
             before_action = time.time()
-            action = act(obs, update_eps=update_eps, **kwargs)[0]
+            result = act(obs, update_eps=update_eps, **kwargs)
+            action = result[0][0]
+            q_vals = result[1][0]
+            max_q = max(q_vals)
+            min_q = min(q_vals)
+            # print(max_q, min_q)
             action_durations.append(time.time() - before_action)
             env_action = action
             reset = False
