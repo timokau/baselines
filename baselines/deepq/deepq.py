@@ -241,7 +241,8 @@ def learn(env,
     U.initialize()
     update_target()
 
-    episode_rewards = [0.0]
+    cur_episode_reward = 0.0
+    episode_rewards = []
     episode_steps = []
     this_episode_started_at = 0
     final_timeslots = []
@@ -304,19 +305,20 @@ def learn(env,
             replay_buffer.add(obs, action, rew, new_obs, float(done))
             obs = new_obs
 
-            episode_rewards[-1] += rew
+            cur_episode_reward += rew
             if done:
                 episode_baselines.append(env.baseline)
                 final_timeslots.append(env.env.used_timeslots)
-                episode_rewards.append(0.0)
+                episode_rewards.append(cur_episode_reward)
+                cur_episode_reward = 0.0
                 episode_steps.append(t - this_episode_started_at)
                 this_episode_started_at = t + 1
 
                 obs = env.reset()
                 reset = True
 
+            before_train = time.time()
             if t > learning_starts and t % train_freq == 0:
-                before_train = time.time()
                 # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
                 if prioritized_replay:
                     experience = replay_buffer.sample(batch_size, beta=beta_schedule.value(t))
@@ -328,24 +330,21 @@ def learn(env,
                 if prioritized_replay:
                     new_priorities = np.abs(td_errors) + prioritized_replay_eps
                     replay_buffer.update_priorities(batch_idxes, new_priorities)
-                train_durations.append(time.time() - before_train)
-            else:
-                train_durations.append(0)
+            train_durations.append(time.time() - before_train)
 
             if t > learning_starts and t % target_network_update_freq == 0:
                 # Update target network periodically.
                 update_target()
             timestep_durations.append(time.time() - before_timestep)
 
-            mean_reward = round(np.mean(episode_rewards[-print_freq-1:-1]), 1)
-            gaps = np.array(final_timeslots[-print_freq:]) - np.array(episode_baselines[-print_freq-1:-1])
+            mean_reward = round(np.mean(episode_rewards[-print_freq:]), 1)
+            gaps = np.array(final_timeslots[-print_freq:]) - np.array(episode_baselines[-print_freq:])
             mean_baseline_gap = round(np.mean(gaps), 1)
             print_freq_steps = int(np.sum(episode_steps[-print_freq:]))
             total_duration = np.sum(timestep_durations[-print_freq_steps:])
             total_train = np.sum(train_durations[-print_freq_steps:])
             total_act = np.sum(action_durations[-print_freq_steps:])
             total_step = np.sum(step_durations[-print_freq_steps:])
-            avg_step = round(np.mean(step_durations[-print_freq_steps:]), 2)
             mean_timestep_duration = round(np.mean(timestep_durations[-print_freq_steps:]), 2)
             cur_blocks = len(env.env.overlay.blocks())
             cur_nodes = len(env.env.infra.nodes())
@@ -356,7 +355,7 @@ def learn(env,
                 logger.record_tabular("episodes", num_episodes)
                 logger.record_tabular("reward", mean_reward)
                 logger.record_tabular("gap", mean_baseline_gap)
-                logger.record_tabular("ts duration", timestep_durations[-1])
+                logger.record_tabular("ts duration", mean_timestep_duration)
                 logger.record_tabular("blocks", cur_blocks)
                 logger.record_tabular("nodes", cur_nodes)
                 logger.record_tabular("links", cur_links)
@@ -364,7 +363,6 @@ def learn(env,
                 logger.record_tabular("act percent", int(100 * total_act / total_duration))
                 logger.record_tabular("train percent", int(100 * total_train / total_duration))
                 logger.record_tabular("step percent", int(100 * total_step / total_duration))
-                logger.record_tabular("avg step", avg_step)
                 logger.record_tabular("% exploration", int(100 * exploration.value(t)))
                 logger.dump_tabular()
 
