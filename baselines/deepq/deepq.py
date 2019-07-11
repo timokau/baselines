@@ -372,16 +372,15 @@ def learn(env,
                 logger.dump_tabular()
 
             mean_100ep_reward = round(np.mean(episode_rewards[-101:-1]), 1)
-            if (checkpoint_freq is not None and t > learning_starts and
-                    num_episodes > 100 and t % checkpoint_freq == 0):
-                if saved_mean_reward is None or mean_100ep_reward > saved_mean_reward:
-                    if print_freq is not None:
-                        logger.log("Saving model due to mean reward increase: {} -> {}".format(
-                                   saved_mean_reward, mean_100ep_reward))
-                    save_variables(model_file)
-                    act.save_act()
-                    model_saved = True
-                    saved_mean_reward = mean_100ep_reward
+            if checkpoint_freq is not None and t % checkpoint_freq == 0:
+                if print_freq is not None:
+                    logger.log("Saving model, mean reward {}".format(mean_100ep_reward))
+                save_variables(model_file)
+                filename = "model-ts{}-rew{}.pkl".format(t, mean_100ep_reward)
+                path = os.path.join(logger.get_dir(), filename)
+                act.save_act(path)
+                model_saved = True
+                saved_mean_reward = mean_100ep_reward
 
         if model_saved:
             if print_freq is not None:
