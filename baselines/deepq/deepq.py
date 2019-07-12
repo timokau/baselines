@@ -343,7 +343,12 @@ def learn(env,
             timestep_durations.append(time.time() - before_timestep)
 
             mean_reward = round(np.mean(episode_rewards[-print_freq:]), 1)
-            gaps = np.array(final_timeslots[-print_freq:]) - np.array(episode_baselines[-print_freq:])
+
+            rl_results = np.array(final_timeslots[-print_freq:])
+            heuristic_results = np.array(episode_baselines[-print_freq:])
+            # a bit of an abuse of the "heuristc gap" concept, since the
+            # thing we're comparing to is a heuristic itself
+            gaps = 100 * (rl_results - heuristic_results) / heuristic_results
             mean_baseline_gap = round(np.mean(gaps), 1)
             print_freq_steps = int(np.sum(episode_steps[-print_freq:]))
             total_duration = np.sum(timestep_durations[-print_freq_steps:])
