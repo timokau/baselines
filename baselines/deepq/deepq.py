@@ -190,6 +190,9 @@ def learn(env,
     """
     # Create all the functions necessary to train the model
 
+    if print_freq != 1:
+        raise NotImplementedError("Print freq >1 not supported")
+
     sess = get_session()
     set_global_seeds(seed)
 
@@ -250,6 +253,7 @@ def learn(env,
     action_durations = []
     step_durations = []
     train_durations = []
+    successes = []
     saved_mean_reward = None
     obs = env.reset()
     episode_baselines = [env.baseline]
@@ -313,7 +317,10 @@ def learn(env,
             cur_episode_reward += rew
             if done:
                 episode_baselines.append(env.baseline)
-                final_timeslots.append(env.env.used_timeslots)
+                if env.env.is_complete():
+                    final_timeslots.append(env.env.used_timeslots)
+                else:
+                    final_timeslots.append(None)
                 episode_rewards.append(cur_episode_reward)
                 cur_episode_reward = 0.0
                 episode_steps.append(t - this_episode_started_at)
@@ -344,12 +351,6 @@ def learn(env,
 
             mean_reward = round(np.mean(episode_rewards[-print_freq:]), 1)
 
-            rl_results = np.array(final_timeslots[-print_freq:])
-            heuristic_results = np.array(episode_baselines[-print_freq:])
-            # a bit of an abuse of the "heuristc gap" concept, since the
-            # thing we're comparing to is a heuristic itself
-            gaps = 100 * (rl_results - heuristic_results) / heuristic_results
-            mean_baseline_gap = round(np.mean(gaps), 1)
             print_freq_steps = int(np.sum(episode_steps[-print_freq:]))
             total_duration = np.sum(timestep_durations[-print_freq_steps:])
             total_train = np.sum(train_durations[-print_freq_steps:])
@@ -359,12 +360,20 @@ def learn(env,
             cur_blocks = len(env.env.overlay.blocks())
             cur_nodes = len(env.env.infra.nodes())
             cur_links = len(env.env.overlay.links())
-            num_episodes = len(episode_rewards) - 1 # trailing 0
-            if done and print_freq is not None and len(episode_rewards) % print_freq == 0:
+            num_episodes = len(episode_rewards)
+            if done:
+                rl_result = final_timeslots[-1]
+                heuristic_result = episode_baselines[-1]
+                if rl_result is not None and heuristic_result is not None:
+                    # a bit of an abuse of the "heuristc gap" concept,
+                    # since the thing we're comparing to is a heuristic
+                    # itself
+                    gap = 100 * (rl_result - heuristic_result) / heuristic_result
+                    logger.record_tabular("gap", round(gap, 1))
+
                 logger.record_tabular("steps", t)
                 logger.record_tabular("episodes", num_episodes)
                 logger.record_tabular("reward", mean_reward)
-                logger.record_tabular("gap", mean_baseline_gap)
                 logger.record_tabular("ts duration", mean_timestep_duration)
                 logger.record_tabular("blocks", cur_blocks)
                 logger.record_tabular("nodes", cur_nodes)
