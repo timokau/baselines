@@ -325,6 +325,7 @@ def learn(env,
                 cur_episode_reward = 0.0
                 episode_steps.append(t - this_episode_started_at)
                 this_episode_started_at = t + 1
+                num_restarts = env.restarts
 
                 obs = env.reset()
                 reset = True
@@ -374,6 +375,7 @@ def learn(env,
                 logger.record_tabular("steps", t)
                 logger.record_tabular("episodes", num_episodes)
                 logger.record_tabular("reward", mean_reward)
+                logger.record_tabular("num_restarts", num_restarts)
                 logger.record_tabular("ts duration", mean_timestep_duration)
                 logger.record_tabular("blocks", cur_blocks)
                 logger.record_tabular("nodes", cur_nodes)
