@@ -275,6 +275,7 @@ def learn(env,
 
 
         for t in range(total_timesteps):
+            learn_steps = t / train_freq
             before_timestep = time.time()
             if callback is not None:
                 if callback(locals(), globals()):
@@ -345,7 +346,7 @@ def learn(env,
                     replay_buffer.update_priorities(batch_idxes, new_priorities)
             train_durations.append(time.time() - before_train)
 
-            if t > learning_starts and t % target_network_update_freq == 0:
+            if t > learning_starts and learn_steps % target_network_update_freq == 0:
                 # Update target network periodically.
                 update_target()
             timestep_durations.append(time.time() - before_timestep)
