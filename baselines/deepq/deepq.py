@@ -105,6 +105,8 @@ def learn(env,
           batch_size=32,
           print_freq=100,
           checkpoint_freq=10000,
+          eval_freq=1000,
+          eval_hook=None,
           checkpoint_path=None,
           learning_starts=1000,
           gamma=1.0,
@@ -398,6 +400,10 @@ def learn(env,
                 act.save_act(path)
                 model_saved = True
                 saved_mean_reward = mean_100ep_reward
+
+            if eval_hook is not None and learn_steps % eval_freq == 0:
+                logger.log("Evaluating")
+                eval_hook(act, logger)
 
         if model_saved:
             if print_freq is not None:
