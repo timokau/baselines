@@ -102,6 +102,7 @@ def learn(env,
           exploration_fraction=0.1,
           exploration_final_eps=0.02,
           train_freq=1,
+          grad_norm_clipping=10,
           batch_size=32,
           print_freq=100,
           checkpoint_freq=10000,
@@ -215,7 +216,7 @@ def learn(env,
         q_func=q_func,
         optimizer=tf.train.AdamOptimizer(learning_rate=lr),
         gamma=gamma,
-        grad_norm_clipping=10,
+        grad_norm_clipping=grad_norm_clipping,
         param_noise=param_noise
     )
 
